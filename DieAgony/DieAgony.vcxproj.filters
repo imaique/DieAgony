@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DieAgony - Copy.cpp">
+    <ClCompile Include="DieAgony.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

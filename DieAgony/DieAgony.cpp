@@ -1,159 +1,114 @@
-// DieAgony.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
 #include <iostream>
-#include <queue>
 
-struct Position {
-    enum Move {
-        UP = 0,
-        LEFT,
-        RIGHT,
-        DOWN
-    };
+struct DieFace {
+    bool hasValue;
+    double value;
 
-    int* up;
-    int* bottom;
-    int* north;
-    int* east;
-    int* west;
-    int* south;
+    DieFace() : hasValue(false) {}
 
-    int x;
-    int y;
-    int score;
-    int n;
+    DieFace(const double value) : value(value), hasValue(true) {}
 
-    friend std::ostream& operator<<(std::ostream& out, const Position& p) {
-        if(p.up) out << "up: " << *p.up << "\n";
-        if (p.bottom) out << "bottom: " << *p.bottom << "\n";
-        if (p.north) out << "north: " << *p.north << "\n";
-        if (p.east) out << "east: " << *p.east << "\n";
-        if (p.west) out << "west: " << *p.west << "\n";
-        if (p.south) out << "south: " << *p.south << "\n";
+    DieFace(const DieFace& face) {
+        hasValue = face.hasValue;
+        if (hasValue) value = face.value;
+    }
 
-        out << "score: " << p.score << "\n";
-        out << "n: " << p.n << "\n";
+    friend std::ostream& operator<<(std::ostream& out, const DieFace& d) {
+        if (d.hasValue) out << d.value;
+        else out << "No value";
         return out;
     }
-
-    Position(int* up, int* bottom, int* north, int* east, int* west, int* south, int y, int x, int score, int n) : 
-        up(up), bottom(bottom), north(north), east(east), west(west), south(south), y(y), x(x), score(score), n(n) { }
 };
+// Each of the die's faces are represented by the direction they are facing at the current square.
+// visited and vis are redundant but a double check to make sure the solution is correct.
+bool dfs(int y, int x, int prevScore, int n, DieFace up, DieFace bottom, DieFace north, DieFace south, DieFace east, DieFace west, const int grid[6][6], int visited[6][6], bool vis[6][6]) {
+    if (x < 0 || y < 0 || x >= 6 || y >= 6) return false;
 
-void push_if_not_nullptr(std::queue<Position*>& queue, Position* pos) {
-    if (pos != nullptr) {
-        std::cout << *pos << "\n";
-        queue.push(pos);
+    // The score always needs to be the value of the square
+    int score = grid[y][x];
+
+    // This is the value "N times the value of the die facing up after the move" by which we increase the score by
+    int increase = score - prevScore;
+
+    // If we are currently in the blue corner, then we've found the correct journey
+    if (y == 5 && x == 5) {
+        visited[5][5] = true;
+
+        // Calculate the total of the unvisited squares (first check)
+        int total = 0;
+        for (size_t i = 0; i < 6; i++) {
+            for (size_t j = 0; j < 6; j++) {
+               std::cout << visited[i][j] << ", \t";
+                if (!visited[i][j]) total+= grid[i][j];
+            }
+            std::cout << " \n";
+        }
+        std::cout << total << "\n";
+
+        // Save this current square as part of the correct path (second check)
+        vis[y][x] = true;
+        return true;
     }
-}
 
-void copy_if_not_nullptr(int** a, int* b) {
-    if (b == nullptr) *a = nullptr;
-    else **a = *b;
-}
-
-bool test_up(int* up, int* score, int y, int x, int n, const int grid[3][3], const Position& origin) {
-    if (x < 0 || y < 0 || x >= 3 || y >= 3) return false;
-    if (up) {
-        double dscore = origin.score + *up * n;
-        if (double(grid[y][x]) != dscore) return false;
-        *score = int(dscore);
+    // If the face facing up already has a value assigned, then it has the be equal to the increase when multiplied by n.
+    // Otherwise assign that value.
+    if (up.hasValue) {
+        if (up.value * n != increase) return false;
     }
     else {
-        double facetest = (grid[y][x] - origin.score) / double(n);
-        if (floor(facetest) == facetest) up = new int(facetest);
-        else return false;
-        *score = grid[y][x];
+        up.value = double(increase) / n;
+        up.hasValue = true;
     }
-    return true;
-}
+    
+    // Increment and decrement the current square in the visited grid. Not a boolean grid as you could technically return from the same square more than once in a path (first check).
+    visited[y][x]++;
+    if (
+        // Explore all orthogonal neighbors, adjusting each of the faces of the square.
+        dfs(y + 1, x, score, n + 1, south, north, up, bottom, east, west, grid, visited, vis) ||
+        dfs(y - 1, x, score, n + 1, north, south, bottom, up, east, west, grid, visited, vis) ||
+        dfs(y, x + 1, score, n + 1, west, east, north, south, up, bottom, grid, visited, vis) ||
+        dfs(y, x - 1, score, n + 1, east, west, north, south, bottom, up, grid, visited, vis)) {
 
-Position* getNewPosition(const Position& origin, Position::Move move, const int grid[3][3]) {
-
-    int x = origin.x, y = origin.y, n = origin.n + 1, score;
-    int* up = nullptr, * bottom = nullptr, * north = nullptr, * east = nullptr, * west = nullptr, * south = nullptr;
-
-    switch (move) {
-    case Position::Move::DOWN:
-        y--;
-
-        copy_if_not_nullptr(&up, origin.north);
-        if (!test_up(up, &score, y, x, n, grid, origin)) return nullptr;
-
-        copy_if_not_nullptr(&bottom, origin.south);
-        copy_if_not_nullptr(&north, origin.bottom);
-        copy_if_not_nullptr(&south, origin.up);
-
-        copy_if_not_nullptr(&west, origin.west);
-        copy_if_not_nullptr(&east, origin.east);
-        break;
-    case Position::Move::UP:
-        y++;
-
-
-        if (!test_up(up, &score, y, x, n, grid, origin)) return nullptr;
-
-        copy_if_not_nullptr(&bottom, origin.north);
-        copy_if_not_nullptr(&north, origin.up);
-        copy_if_not_nullptr(&south, origin.bottom);
-
-        copy_if_not_nullptr(&west, origin.west);
-        copy_if_not_nullptr(&east, origin.east);
-        break;
-    case Position::Move::RIGHT:
-        x++;
-
-        copy_if_not_nullptr(&up, origin.west);
-        if (!test_up(up, &score, y, x, n, grid, origin)) return nullptr;
-
-        copy_if_not_nullptr(&bottom, origin.east);
-        copy_if_not_nullptr(&west, origin.bottom);
-        copy_if_not_nullptr(&east, origin.up);
-
-        copy_if_not_nullptr(&north, origin.north);
-        copy_if_not_nullptr(&south, origin.south);
-
-        break;
-    case Position::Move::LEFT:
-        x--;
-
-        copy_if_not_nullptr(&up, origin.east);
-        if (!test_up(up, &score, y, x, n, grid, origin)) return nullptr;
-
-        copy_if_not_nullptr(&bottom, origin.east);
-        copy_if_not_nullptr(&west, origin.bottom);
-        copy_if_not_nullptr(&east, origin.up);
-
-        copy_if_not_nullptr(&north, origin.north);
-        copy_if_not_nullptr(&south, origin.south);
-        break;
+        // If one of the dfs was fruitful, it means that this square is part of die's journey (second check).
+        vis[y][x] = true;
+        return true;
     }
+    visited[y][x]--;
+    return false;
+    
 
-    return new Position(up, bottom, north, east, west, south, y, x, score, n);
 }
-
 
 int main()
 {
-    const int grid[3][3] = {
-        {3, 4, 5},
-        {2, 3, 4},
-        {1, 2, 3}
+    // Initialize the two arrays that keep track of which squares we've visited
+    bool vis[6][6];
+    int visited[6][6];
+    for (size_t i = 0; i < 6; i++) {
+        for (size_t j = 0; j < 6; j++) {
+            vis[i][j] = false;
+            visited[i][j] = 0;
+        }
+    }
+
+    const int grid[6][6] = {
+        {0, 77, 32, 403, 337, 452},
+        {5, 23, -4, 592, 445, 620},
+        {-7, 2, 357, 452, 317, 395},
+        {186, 42, 195, 704, 452, 228},
+        {81, 123, 240, 443, 353, 508},
+        {57, 33, 132, 268, 492, 732}
     };
 
-    std::queue<Position*> queue;
-    Position* startPosistion = new Position(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 0, 0, 0, 0);
-    queue.push(startPosistion);
+    dfs(1, 0, 0, 1, DieFace(), DieFace(), DieFace(), DieFace(), DieFace(), DieFace(), grid, visited, vis);
+    dfs(0, 1, 0, 1, DieFace(), DieFace(), DieFace(), DieFace(), DieFace(), DieFace(), grid, visited, vis);
 
-    while (!queue.empty()) {
-        const Position& origin = *queue.front();
-        if (origin.x == 2 && origin.y == 2) std::cout << origin;
-
-        queue.pop();
-        push_if_not_nullptr(queue, getNewPosition(origin, Position::Move::DOWN, grid));
-        push_if_not_nullptr(queue, getNewPosition(origin, Position::Move::UP, grid));
-        push_if_not_nullptr(queue, getNewPosition(origin, Position::Move::LEFT, grid));
-        push_if_not_nullptr(queue, getNewPosition(origin, Position::Move::RIGHT, grid));
+    // Calculate the total of the unvisited squares (second check)
+    int total = 0;
+    for (int i = 0; i < 6; i++) {
+        for (int j = 0; j < 6; j++) {
+            if (!vis[i][j]) total += grid[i][j];
+        }
     }
+    std::cout << total << "\n";
 }
