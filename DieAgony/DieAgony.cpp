@@ -100,6 +100,7 @@ int main()
         {57, 33, 132, 268, 492, 732}
     };
 
+    // The only two valid orthogonal squares from the starting position are the right and the top one
     dfs(1, 0, 0, 1, DieFace(), DieFace(), DieFace(), DieFace(), DieFace(), DieFace(), grid, visited, vis);
     dfs(0, 1, 0, 1, DieFace(), DieFace(), DieFace(), DieFace(), DieFace(), DieFace(), grid, visited, vis);
 
